@@ -1,0 +1,293 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="t" content="__TOKEN__">
+<meta name="color-scheme" content="dark light">
+<title>Umbra</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Cdefs%3E%3CclipPath id=%27c%27%3E%3Ccircle cx=%2716%27 cy=%2716%27 r=%279.5%27/%3E%3C/clipPath%3E%3C/defs%3E%3Crect width=%2732%27 height=%2732%27 rx=%277%27 fill=%27%231d1e30%27/%3E%3Ccircle cx=%2716%27 cy=%2716%27 r=%279.5%27 fill=%27%2352d6c8%27/%3E%3Ccircle cx=%2720.5%27 cy=%2713%27 r=%279%27 fill=%27%231d1e30%27 clip-path=%27url(%23c)%27/%3E%3Ccircle cx=%2716%27 cy=%2716%27 r=%279.5%27 fill=%27none%27 stroke=%27%2352d6c8%27 stroke-width=%271.6%27/%3E%3C/svg%3E">
+<link rel="stylesheet" href="/app.css">
+</head>
+<body>
+<div id="app">
+
+  <header class="top">
+    <h1 class="brand">Umbra <span class="ver" id="ver"></span></h1>
+    <div class="top-actions">
+      <button id="btn-update" class="btn update hidden" title="Открыть страницу загрузки новой версии"></button>
+      <button id="btn-site" class="btn quiet" title="Узнать, открывается ли сайт напрямую и через сервер">Проверить сайт</button>
+      <button id="btn-help" class="btn quiet">Как пользоваться</button>
+      <button id="btn-settings" class="btn quiet">Настройки</button>
+      <button id="btn-quit" class="btn quiet">Выйти</button>
+    </div>
+  </header>
+
+  <main class="layout">
+
+    <!-- ============ servers ============ -->
+    <section class="pane servers" aria-label="Серверы">
+      <div class="toolbar">
+        <input id="search" class="search" type="search" placeholder="Поиск по имени или адресу" autocomplete="off" spellcheck="false">
+        <select id="sort" class="select" title="Порядок серверов">
+          <option value="order">Как в подписке</option>
+          <option value="ping">Сначала быстрые</option>
+          <option value="name">По имени</option>
+        </select>
+        <button id="btn-ping" class="btn" title="Измерить время отклика всех серверов">Проверить</button>
+        <button id="btn-best" class="btn" title="Проверить все и выбрать сервер с самым быстрым откликом">Самый быстрый</button>
+        <button id="btn-add" class="btn primary">Добавить</button>
+      </div>
+
+      <div id="list" class="list"></div>
+
+      <div id="empty" class="empty hidden">
+        <h2>Добавь первый сервер</h2>
+        <p>Скопируй ссылку <code>vless://…</code> или адрес подписки и нажми кнопку.<br>
+           Можно просто нажать <kbd>Ctrl</kbd>+<kbd>V</kbd> в этом окне.</p>
+        <div class="empty-actions">
+          <button id="empty-paste" class="btn primary big">Вставить из буфера</button>
+          <button id="empty-manual" class="btn big">Ввести вручную</button>
+        </div>
+      </div>
+      <div id="nomatch" class="empty hidden"><p>Ничего не найдено. Измени запрос в поиске.</p></div>
+    </section>
+
+    <!-- ============ route / control ============ -->
+    <section class="pane route" aria-label="Соединение">
+
+      <svg id="route" class="diagram off bypass" viewBox="0 0 400 166" role="img" aria-label="Схема маршрута трафика">
+        <!-- direct branch -->
+        <path class="link direct" d="M40 90 C40 148, 360 148, 360 90"/>
+        <!-- tunnel -->
+        <path class="link tunnel" d="M58 72 H182"/>
+        <path class="link tunnel" d="M218 72 H342"/>
+
+        <g class="node pc"><circle cx="40" cy="72" r="18"/>
+          <path d="M31 65h18v11H31zM36 80h8" /></g>
+        <g class="node server"><circle cx="200" cy="72" r="18"/>
+          <path d="M191 66h18M191 72h18M191 78h18"/></g>
+        <g class="node net"><circle cx="360" cy="72" r="18"/>
+          <path d="M351 72h18M360 63c-5 5-5 13 0 18M360 63c5 5 5 13 0 18"/></g>
+
+        <text class="t-title" x="14" y="24">Этот ПК</text>
+        <text class="t-sub" id="rt-pc" x="14" y="42"></text>
+        <text class="t-title mid" id="rt-server" x="200" y="24">сервер не выбран</text>
+        <text class="t-sub mid" id="rt-server-sub" x="200" y="42"></text>
+        <text class="t-title end" x="386" y="24">Интернет</text>
+        <text class="t-sub end" id="rt-net" x="386" y="42"></text>
+
+        <text class="t-flow tunnel mid" id="rt-tunnel-vol" x="120" y="62"></text>
+        <text class="t-flow direct mid" id="rt-direct" x="200" y="156"></text>
+      </svg>
+
+      <button id="btn-connect" class="connect">Подключить</button>
+      <p id="status" class="status" aria-live="polite"></p>
+
+      <div class="speed">
+        <div class="speed-nums">
+          <div><span class="arrow">↓</span><b id="sp-down">0</b><small id="sp-down-u">КБ/с</small></div>
+          <div><span class="arrow up">↑</span><b id="sp-up">0</b><small id="sp-up-u">КБ/с</small></div>
+          <div class="total" id="sp-total"></div>
+        </div>
+        <canvas id="chart" width="776" height="112" aria-label="Скорость за последнюю минуту"></canvas>
+        <div class="speedtest">
+          <button id="btn-speed" class="btn small" title="Скачивает тестовый файл через сервер несколько секунд">Измерить скорость</button>
+          <span id="speed-out"></span>
+        </div>
+      </div>
+
+      <div class="field">
+        <div class="field-title">Что отправлять через сервер</div>
+        <div class="seg" id="seg-mode" role="radiogroup">
+          <button data-mode="bypass_ru" role="radio">Кроме российских сайтов</button>
+          <button data-mode="global" role="radio">Весь трафик</button>
+        </div>
+        <p class="hint" id="mode-desc"></p>
+      </div>
+
+      <div class="field">
+        <div class="row-between">
+          <div class="field-title">Направлять программы Windows через клиент</div>
+          <label class="switch"><input type="checkbox" id="sw-sys"><span></span></label>
+        </div>
+        <p class="hint" id="sys-hint"></p>
+        <p class="hint manual">Вручную, например для Telegram:
+          <button class="copy" id="cp-socks" title="Скопировать адрес"></button>
+          <button class="copy" id="cp-http" title="Скопировать адрес"></button></p>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ============ journal ============ -->
+  <section id="journal" class="journal" aria-label="Журнал">
+    <div class="journal-bar">
+      <button id="j-toggle" class="j-toggle" aria-expanded="false"><span class="chev"></span>Журнал</button>
+      <span id="j-last" class="j-last"></span>
+      <div class="j-tools">
+        <div class="seg small" id="j-filter">
+          <button data-f="all" class="active">Все</button>
+          <button data-f="app">Программа</button>
+          <button data-f="xray">Xray</button>
+        </div>
+        <button id="j-copy" class="btn small">Скопировать</button>
+        <button id="j-clear" class="btn small">Очистить</button>
+      </div>
+    </div>
+    <pre id="log" class="logbox"></pre>
+  </section>
+</div>
+
+<div id="toasts" class="toasts" aria-live="assertive"></div>
+
+<dialog id="dlg-add">
+  <form method="dialog" class="dlg">
+    <h2>Добавить серверы</h2>
+    <p class="hint">Вставь ссылки <code>vless://</code>, <code>trojan://</code>, <code>ss://</code>, <code>vmess://</code> (по одной в строке) или адрес подписки <code>https://…</code>.</p>
+    <textarea id="add-text" rows="7" spellcheck="false" placeholder="vless://…  или  https://адрес-подписки"></textarea>
+    <pre id="add-result" class="result hidden"></pre>
+    <div class="dlg-actions">
+      <button type="button" id="add-paste" class="btn">Вставить из буфера</button>
+      <div class="spacer"></div>
+      <button type="button" id="add-cancel" class="btn quiet">Закрыть</button>
+      <button type="button" id="add-ok" class="btn primary">Добавить</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dlg-qr">
+  <form method="dialog" class="dlg qr">
+    <h2 id="qr-title">QR-код сервера</h2>
+    <div id="qr-box" class="qr-box"></div>
+    <p class="hint">Отсканируй камерой телефона в приложении-клиенте. В коде зашит ключ доступа: не показывай его посторонним и не выкладывай скриншот.</p>
+    <div class="dlg-actions"><div class="spacer"></div><button type="button" id="qr-close" class="btn primary">Готово</button></div>
+  </form>
+</dialog>
+
+<dialog id="dlg-site">
+  <form method="dialog" class="dlg">
+    <h2>Проверка сайта</h2>
+    <p class="hint">Показывает, открывается ли сайт с этого компьютера напрямую и через выбранный сервер. Правила маршрутов на результат не влияют.</p>
+    <div class="site-row">
+      <input id="site-input" type="text" placeholder="example.com" spellcheck="false" autocomplete="off">
+      <button type="button" id="site-go" class="btn primary">Проверить</button>
+    </div>
+    <div class="chips" id="site-presets">
+      <button type="button" class="chip" data-site="youtube.com">YouTube</button>
+      <button type="button" class="chip" data-site="instagram.com">Instagram</button>
+      <button type="button" class="chip" data-site="chatgpt.com">ChatGPT</button>
+      <button type="button" class="chip" data-site="github.com">GitHub</button>
+      <button type="button" class="chip" data-site="web.telegram.org">Telegram</button>
+      <button type="button" class="chip" data-site="gosuslugi.ru">Госуслуги</button>
+      <button type="button" class="chip" data-site="ya.ru">Яндекс</button>
+    </div>
+    <div id="site-result" class="site-result hidden">
+      <div class="site-line direct"><i></i><b>Напрямую</b><span id="site-direct"></span></div>
+      <div class="site-line server"><i></i><b id="site-server-name">Через сервер</b><span id="site-server"></span></div>
+      <p id="site-verdict" class="verdict"></p>
+      <div class="site-actions">
+        <button type="button" id="site-rule-proxy" class="btn">Всегда открывать через сервер</button>
+        <button type="button" id="site-rule-direct" class="btn">Всегда открывать напрямую</button>
+      </div>
+    </div>
+    <div class="dlg-actions"><div class="spacer"></div><button type="button" id="site-close" class="btn quiet">Закрыть</button></div>
+  </form>
+</dialog>
+
+<dialog id="dlg-help">
+  <form method="dialog" class="dlg">
+    <h2>Как пользоваться</h2>
+    <ol class="steps">
+      <li><b>Добавь серверы.</b> Скопируй ссылку <code>vless://</code> или адрес подписки и нажми <kbd>Ctrl</kbd>+<kbd>V</kbd> прямо в окне.</li>
+      <li><b>Выбери сервер.</b> «Проверить» измерит время запроса через каждый сервер. Щелчок выбирает сервер, двойной щелчок сразу подключает.</li>
+      <li><b>Нажми «Подключить».</b> В первый раз программа сама скачает ядро Xray (около 20 МБ).</li>
+      <li><b>Посмотри на схему.</b> Под «Интернет» появится адрес, под которым тебя видят сайты. Бирюзовая линия показывает трафик через сервер, янтарная показывает трафик напрямую.</li>
+    </ol>
+    <p class="hint" id="help-close-note"></p>
+    <p class="hint"> Время в списке показывает, как быстро проходит запрос через сервер. Скорость скачивания измеряет отдельная кнопка «Измерить скорость».</p>
+    <div class="dlg-actions"><div class="spacer"></div><button type="button" id="help-close" class="btn primary">Понятно</button></div>
+  </form>
+</dialog>
+
+<dialog id="dlg-settings">
+  <form method="dialog" class="dlg wide">
+    <h2>Настройки</h2>
+    <div class="settings">
+
+      <fieldset><legend>Оформление</legend>
+        <div class="look">
+          <div class="seg" id="st-theme">
+            <button type="button" data-theme="dark">Тёмная</button>
+            <button type="button" data-theme="light">Светлая</button>
+          </div>
+          <div class="swatches" id="st-accent" aria-label="Цвет акцента">
+            <button type="button" class="swatch" data-accent="teal" title="Бирюза"></button>
+            <button type="button" class="swatch" data-accent="sky" title="Небо"></button>
+            <button type="button" class="swatch" data-accent="lavender" title="Лаванда"></button>
+            <button type="button" class="swatch" data-accent="mint" title="Мята"></button>
+            <button type="button" class="swatch" data-accent="lime" title="Лайм"></button>
+          </div>
+        </div>
+      </fieldset>
+
+      <fieldset><legend>Запуск</legend>
+        <label class="check"><input type="checkbox" id="st-auto-connect"><span>Подключаться сразу при запуске программы</span></label>
+        <label class="check" id="st-autostart-row"><input type="checkbox" id="st-autostart"><span>Запускать вместе с Windows</span></label>
+        <label class="check" id="st-tray-row"><input type="checkbox" id="st-tray"><span>При закрытии окна оставаться в трее (значок возле часов)</span></label>
+        <label class="check" id="st-notify-row"><input type="checkbox" id="st-notify"><span>Показывать уведомления: обрыв связи, смена сервера, окончание подписки</span></label>
+        <label class="check"><input type="checkbox" id="st-sub-update"><span>Обновлять подписки при запуске, если им больше 12 часов</span></label>
+      </fieldset>
+
+      <fieldset><legend>Надёжность</legend>
+        <label class="check"><input type="checkbox" id="st-reconnect"><span>Восстанавливать соединение, если ядро упало</span></label>
+        <label class="check"><input type="checkbox" id="st-failover"><span>Переключаться на другой сервер, если текущий перестал отвечать</span></label>
+      </fieldset>
+
+      <fieldset><legend>Маршруты</legend>
+        <div id="st-presets" class="presets"></div>
+        <label><span>Всегда напрямую, по одному в строке. Примеры: <code>example.com</code>, <code>10.0.0.0/8</code>, <code>geoip:cn</code></span>
+          <textarea id="st-direct" rows="3" spellcheck="false"></textarea></label>
+        <label><span>Всегда через сервер, даже российские. Пример: <code>rutracker.org</code></span>
+          <textarea id="st-proxy" rows="3" spellcheck="false"></textarea></label>
+      </fieldset>
+
+      <fieldset><legend>Сеть</legend>
+        <div class="two">
+          <label><span>Порт SOCKS5</span><input id="st-socks" type="number" min="1024" max="65535"></label>
+          <label><span>Порт HTTP</span><input id="st-http" type="number" min="1024" max="65535"></label>
+        </div>
+        <label><span>Подробность журнала Xray</span>
+          <select id="st-level">
+            <option value="error">Только ошибки (обычный режим)</option>
+            <option value="warning">С предупреждениями (много строк о каждом сбое соединения)</option>
+            <option value="info">Подробно</option>
+            <option value="debug">Отладка</option>
+            <option value="none">Ничего</option>
+          </select></label>
+        <label class="check"><input type="checkbox" id="st-conns"><span>Писать в журнал каждое соединение (куда и каким путём)</span></label>
+      </fieldset>
+
+      <fieldset><legend>Ядро и данные</legend>
+        <div class="corebox">
+          <div>Xray-core: <b id="st-core">—</b></div>
+          <div class="bar"><i id="st-bar"></i></div>
+          <div class="corebtns">
+            <button type="button" id="st-install" class="btn">Обновить ядро</button>
+            <button type="button" id="st-folder" class="btn">Открыть папку данных</button>
+          </div>
+          <p class="hint">Ядро скачивается с GitHub (XTLS/Xray-core), контрольная сумма SHA-256 сверяется. Данные: <code id="st-dir"></code></p>
+        </div>
+      </fieldset>
+    </div>
+    <div class="dlg-actions">
+      <div class="spacer"></div>
+      <button type="button" id="st-cancel" class="btn quiet">Отмена</button>
+      <button type="button" id="st-save" class="btn primary">Сохранить</button>
+    </div>
+  </form>
+</dialog>
+
+<script src="/app.js"></script>
+</body>
+</html>

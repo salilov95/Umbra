@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+build/
+dist/
+*.spec
+.build-venv/
+_backup/
+cleanup_old_names.bat
