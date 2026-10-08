@@ -109,6 +109,10 @@ python -m unittest discover -s tests -t .
 
 Выпуск версии: поменять номер в `umbra/__init__.py`, создать релиз с тегом вида `v0.6.1`. Сборка сама приложит к нему exe и установщик.
 
+## Автор и обратная связь
+
+Автор: [@salilov95](https://github.com/salilov95). Нашёл ошибку или хочешь предложить функцию — создай [issue](https://github.com/salilov95/Umbra/issues).
+
 ## Лицензия
 
 Код Umbra распространяется по лицензии MIT, см. файл `LICENSE`.
